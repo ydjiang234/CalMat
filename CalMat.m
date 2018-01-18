@@ -47,14 +47,28 @@ classdef CalMat
             obj.revKamp = obj.revK;
             %other
             obj = obj.convertDisp();
+            obj = obj.preRender();
+        end
+        
+        function obj = preRender(obj)
             %load template;
             filePath = 'ModifiedCPTemplate.tcl';
             f = fopen(filePath, 'r');
             str = textscan(f, '%s','delimiter','\n');
             fclose(f);
             %str = strjoin(str{1,1}, '\n');
-            obj.template = str{1,1};
+            str = str{1,1};
+            str = strrep(str, '{{L}}', sprintf('%f', obj.L));
+            str = strrep(str, '{{E}}', sprintf('%f', obj.E));
+            str = strrep(str, '{{A}}', sprintf('%f', obj.A));
+            str = strrep(str, '{{I}}', sprintf('%f', obj.I));
+            str = strrep(str, '{{revE}}', sprintf('%f', obj.revKamp));
+            str = strrep(str, '{{ampFactor}}', sprintf('%f', obj.ampFactor));
+            str = strrep(str, '{{Naxial}}', sprintf('%f', obj.N));
+            str = strrep(str, '{{DispList}}', obj.DispList);
+            obj.template = str;
         end
+        
         
         function obj = shiftBackbone(obj)
             obj.backboneShifted(:,1) = obj.backbone(:,1);
@@ -76,22 +90,16 @@ classdef CalMat
         function renderTemplate(obj, outPath, lambda_S, lambda_C, lambda_A, lambda_K )
             str = obj.template; 
             %replace parameters
-            str = strrep(str, '{{L}}', sprintf('%f', obj.L));
-            str = strrep(str, '{{E}}', sprintf('%f', obj.E));
-            str = strrep(str, '{{A}}', sprintf('%f', obj.A));
-            str = strrep(str, '{{I}}', sprintf('%f', obj.I));
-            str = strrep(str, '{{revE}}', sprintf('%f', obj.revKamp));
-            str = strrep(str, '{{ampFactor}}', sprintf('%f', obj.ampFactor));
-            str = strrep(str, '{{Naxial}}', sprintf('%f', obj.N));
+            
             str = strrep(str, '{{CP_CMDLine}}', obj.CP_cmdLine(lambda_S, lambda_C, lambda_A, lambda_K));
-            str = strrep(str, '{{DispList}}', obj.DispList);
+            
             str = strrep(str, '{{outname}}', outPath);
             %str = strrep(str, '{{}}', num2str());
             %str = strrep(str, '{{}}', num2str());
-            %f = fopen(sprintf('%s.out', outPath), 'w');
-            %fprintf(f, '%s', char(str));
-            %fclose(f);
-            dlmwrite(sprintf('%s.out', outPath),char(str),'delimiter','');
+            f = fopen(sprintf('%s.out', outPath), 'w');
+            fprintf(f, '%s\n', str{:});
+            fclose(f);
+            %dlmwrite(sprintf('%s.out', outPath),char(str),'delimiter','');
         end
         
         function output = runOpenSees(obj, filePath)
