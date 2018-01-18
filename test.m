@@ -11,13 +11,14 @@ revK = 533.33E6;%Nmm/rad
 ampFactor = 20.0;
 backbone = load('backbone.txt');%Rotation (rad) - Moment (kNm)
 backbone(:,2) = backbone(:,2) * 1.0e6;
-targetData = load('TargetData.txt');%Displacement (mm) - Load (kN) 
+targetData = load('TargetData.txt');%Displacement (mm) - Moment (kNm) 
 targetData(:,1) = targetData(:,1) / L;
-targetData(:,2) = targetData(:,2) * L * 1.0E3;
-cal = CalMat( A, I, L, Naxial, revK, backbone, targetData, ampFactor);
+targetData(:,2) = targetData(:,2) * 1.0E6;
+cal = CalMat(A, I, L, Naxial, revK, backbone, targetData, ampFactor);
 
-filePath = 'ModifiedCPTemplate.tcl';
-outPath = 'rendered.tcl';
-str = cal.renderTemplate(filePath, outPath, 1.0, 1.0, 1.0, 1.0);
-%cal.runOpenSees(filePath)
+%filePath = 'ModifiedCPTemplate.tcl';
+output = cal.Analyze(10.0, 10.0, 10.0, 10.0);
+plot(output(:,1)/L*-1, output(:,2)/1e6*-1, 'r');
+hold on;
+plot(targetData(:,1), targetData(:,2)/1e6);
 %out = cal.convertDisp();

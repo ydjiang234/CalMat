@@ -10,6 +10,7 @@ classdef CalMat
         revK; revKamp;%describe the additional reversed material
         ampFactor;
         DispList;
+        template;
     end
     
     methods
@@ -41,11 +42,18 @@ classdef CalMat
             obj.K0amp = obj.K0 * (obj.ampFactor + 1.0);
             obj.thetap = obj.thetac - obj.thetay;
             obj.thetapc = obj.backboneShifted(3,1) - obj.thetac;
-            obj.as = (obj.Fc - obj.Fy) / obj.thetap / obj.K0;
+            obj.as = (obj.Fc - obj.Fy) / obj.thetap / obj.K0amp;
             %for the reverse material
-            obj.revKamp = obj.revK * (obj.ampFactor + 1.0);
+            obj.revKamp = obj.revK;
             %other
             obj = obj.convertDisp();
+            %load template;
+            filePath = 'ModifiedCPTemplate.tcl';
+            f = fopen(filePath, 'r');
+            str = textscan(f, '%s','delimiter','\n');
+            fclose(f);
+            %str = strjoin(str{1,1}, '\n');
+            obj.template = str{1,1};
         end
         
         function obj = shiftBackbone(obj)
@@ -65,37 +73,45 @@ classdef CalMat
             cmdLine = sprintf('%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f', obj.K0amp, obj.as, obj.as, obj.Fy, -obj.Fy, lambda_S, lambda_C, lambda_A, lambda_K, obj.c_S, obj.c_C, obj.c_A, obj.c_K, obj.thetap, obj.thetap, obj.thetapc, obj.thetapc, obj.Res, obj.Res, obj.thetau, obj.thetau, obj.D, obj.D);
         end
         
-        function str = renderTemplate(obj, filePath, outPath, lambda_S, lambda_C, lambda_A, lambda_K )
-            f = fopen(filePath, 'r');
-            str = textscan(f, '%s','delimiter','\n');
-            fclose(f);
-            %str = strjoin(str{1,1}, '\n');
-            str = str{1,1};
-            
+        function renderTemplate(obj, outPath, lambda_S, lambda_C, lambda_A, lambda_K )
+            str = obj.template; 
             %replace parameters
-            str = strrep(str, '{{L}}', num2str(obj.L));
-            str = strrep(str, '{{E}}', num2str(obj.E));
-            str = strrep(str, '{{A}}', num2str(obj.A));
-            str = strrep(str, '{{I}}', num2str(obj.I));
-            str = strrep(str, '{{revE}}', num2str(obj.revKamp));
-            str = strrep(str, '{{ampFactor}}', num2str(obj.ampFactor));
-            str = strrep(str, '{{Naxial}}', num2str(obj.N));
+            str = strrep(str, '{{L}}', sprintf('%f', obj.L));
+            str = strrep(str, '{{E}}', sprintf('%f', obj.E));
+            str = strrep(str, '{{A}}', sprintf('%f', obj.A));
+            str = strrep(str, '{{I}}', sprintf('%f', obj.I));
+            str = strrep(str, '{{revE}}', sprintf('%f', obj.revKamp));
+            str = strrep(str, '{{ampFactor}}', sprintf('%f', obj.ampFactor));
+            str = strrep(str, '{{Naxial}}', sprintf('%f', obj.N));
             str = strrep(str, '{{CP_CMDLine}}', obj.CP_cmdLine(lambda_S, lambda_C, lambda_A, lambda_K));
             str = strrep(str, '{{DispList}}', obj.DispList);
+            str = strrep(str, '{{outname}}', outPath);
             %str = strrep(str, '{{}}', num2str());
             %str = strrep(str, '{{}}', num2str());
-            
-            %dlmwrite(outPath,str,'delimiter','');
+            %f = fopen(sprintf('%s.out', outPath), 'w');
+            %fprintf(f, '%s', char(str));
+            %fclose(f);
+            dlmwrite(sprintf('%s.out', outPath),char(str),'delimiter','');
         end
         
-        function runOpenSees(obj, filePath)
-            system(sprintf('OpenSees %s', filePath));
+        function output = runOpenSees(obj, filePath)
+            system(sprintf('OpenSees %s.out', filePath));
+            dataX = load(sprintf('%s_disp.out', filePath));
+            dataY = load(sprintf('%s_force.out', filePath));
+            delete *.out
+            output = horzcat(dataX, dataY);
+        end
+        
+        function output = Analyze(obj, lambda_S, lambda_C, lambda_A, lambda_K )
+            outPath = 'rendered';
+            obj.renderTemplate(outPath, lambda_S, lambda_C, lambda_A, lambda_K);
+            output = runOpenSees(obj, outPath);
         end
         
         function obj = convertDisp(obj)
             out = cell(1, length(obj.targetX));
             for i=1:length(out)
-                out{i} = num2str(obj.targetX(i));
+                out{i} = sprintf('%f', obj.targetX(i)*obj.L);
             end
             obj.DispList = strjoin(out);
         end

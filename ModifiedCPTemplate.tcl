@@ -11,7 +11,7 @@ set revE {{revE}};
 set ampFactor {{ampFactor}};
 set Naxial {{Naxial}};
 set transfTag 1;
-set outDir "Results"
+set outname "{{outname}}"
 
 #Node & Boundary
 node 1 0.0 0.0;
@@ -23,7 +23,7 @@ fix 1 1 1 1;
 uniaxialMaterial ModIMKPeakOriented 1 {{CP_CMDLine}};
 uniaxialMaterial Elastic 2 $revE;
 uniaxialMaterial Parallel 3 1 2 -factors 1.0 -1.0;
-uniaxialMaterial Elastic 4 [expr $E * ($ampFactor + 1.0)];
+uniaxialMaterial Elastic 4 [expr $E * $A * $ampFactor];
 #Section
 geomTransf Corotational $transfTag;
 section Elastic 2 $E $A $I;
@@ -54,8 +54,9 @@ pattern Plain 1 Linear {
     load 2 1.0 0.0 0.0;
 }
 
-recorder Node -file "${outDir}/force.out" -node 1 -dof 3 reaction;
-recorder Node -file "${outDir}/disp.out" -node 2 -dof 1 disp;
+
+recorder Node -file "${outname}_force.out" -node 1 -dof 3 reaction;
+recorder Node -file "${outname}_disp.out" -node 2 -dof 1 disp;
 
 
 source "D:/Git/OPS/Shared_Proc/Analysis.tcl"
@@ -64,5 +65,5 @@ set DispList [list {{DispList}}];
 constraints Plain;
 numberer Plain;
 system BandGeneral;
-set isFinish [Analyse_Static_Disp_Cyclic_Control 2 1 $DispList 1.0 1.0E-3 50 $AlgOrder]
-print -node 1;
+set isFinish [Analyse_Static_Disp_Cyclic_Control 2 1 $DispList 0.1 1.0E-3 50 $AlgOrder]
+#print -node 1;
