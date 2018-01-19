@@ -1,6 +1,7 @@
 close all;
 clear all;
 clc;
+%initial the calculation class
 %Use unit mm and N;
 import CalMat;
 A = 46759.46506;%mm2
@@ -15,14 +16,24 @@ backbone(:,2) = backbone(:,2) * 1.0e6;
 targetData = load('TargetData.txt');%Displacement (mm) - Moment (kNm) 
 targetData(:,1) = targetData(:,1) / L;
 targetData(:,2) = targetData(:,2) * 1.0E6;
-cal = CalMat(A, I, L, Naxial, revK, backbone, targetData, ampFactor);
 
-%filePath = 'ModifiedCPTemplate.tcl';
-[output, energy, fitness] = cal.Analyze(10.0, 10.0, 10.0, 10.0);
-plot(output(:,1), output(:,2)/1e6, 'r');
-figure;
-plot(targetData(:,1), targetData(:,2)/1e6);
+d_incr = 1.0;
+cal = CalMat(A, I, L, Naxial, revK, backbone, targetData, ampFactor, d_incr);
 
-%plot(cal.Energy(:,1), cal.Energy(:,2), 'k')
-%hold on;
-%plot(energy(:,1), energy(:,2), 'r')
+%initial the Harmony search class
+pit_range = [0, 15;
+            0, 15;
+            0, 15;
+            0, 15;];
+hms = 10;
+fw_ratio = 0.01; hmcr = 0.9; par = 0.3;
+
+HS = Harmony_Search(pit_range, hms, @cal.fit_fun, hmcr, par, fw_ratio);
+max_iter = 100;
+for i=1:max_iter
+    HS = HS.next();
+    [vectors(i,:), maxFitness(i)] = HS.Optimized();
+end
+%plot(maxFitness)
+[temp, max_ind] =  max(maxFitness);
+sprintf('With an iteration number = %i, the solutions are %0.3f %0.3f %0.3f %0.3f', max_iter, vectors(max_ind,:))

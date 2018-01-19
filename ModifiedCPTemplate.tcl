@@ -11,7 +11,8 @@ set revE {{revE}};
 set ampFactor {{ampFactor}};
 set Naxial {{Naxial}};
 set transfTag 1;
-set outname "{{outname}}"
+set outname "{{outname}}";
+set d_incr {{d_incr}};
 
 #Node & Boundary
 node 1 0.0 0.0;
@@ -65,5 +66,5 @@ set DispList [list {{DispList}}];
 constraints Plain;
 numberer Plain;
 system BandGeneral;
-set isFinish [Analyse_Static_Disp_Cyclic_Control 2 1 $DispList 0.1 1.0E-3 50 $AlgOrder]
+set isFinish [Analyse_Static_Disp_Cyclic_Control 2 1 $DispList $d_incr 1.0E-3 50 $AlgOrder]
 #print -node 1;

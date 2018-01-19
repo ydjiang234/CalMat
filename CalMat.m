@@ -12,11 +12,12 @@ classdef CalMat
         DispList;
         template;
         considerNum = 10;
-        Energy
+        Energy;
+        d_incr;
     end
     
     methods
-        function obj = CalMat(A, I, L, N, revK, backbone, targetData, ampFactor)
+        function obj = CalMat(A, I, L, N, revK, backbone, targetData, ampFactor, d_incr)
             obj.A = A;
             obj.I = I;
             obj.L = L;
@@ -26,6 +27,7 @@ classdef CalMat
             obj.targetX = targetData(:,1);
             obj.targetY = targetData(:,2);
             obj.ampFactor = ampFactor;
+            obj.d_incr = d_incr;
             obj = obj.initialize();
         end
         
@@ -71,6 +73,7 @@ classdef CalMat
             str = strrep(str, '{{I}}', sprintf('%f', obj.I));
             str = strrep(str, '{{revE}}', sprintf('%f', obj.revKamp));
             str = strrep(str, '{{ampFactor}}', sprintf('%f', obj.ampFactor));
+            str = strrep(str, '{{d_incr}}', sprintf('%f', obj.d_incr));
             str = strrep(str, '{{Naxial}}', sprintf('%f', obj.N));
             str = strrep(str, '{{DispList}}', obj.DispList);
             obj.template = str;
@@ -125,15 +128,46 @@ classdef CalMat
             fitness = obj.Fitness(energy);
         end
         
+        function fitness = fit_fun(obj, vector)
+            lambda_S = vector(1);
+            lambda_C = vector(2);
+            lambda_A = vector(3);
+            lambda_K = vector(4);
+            [output, energy, fitness] = obj.Analyze(lambda_S, lambda_C, lambda_A, lambda_K);
+            fitness = fitness;
+        end
+        
         function fitness = Fitness(obj, energy)
+            energy = obj.monoData(energy);
             energy = obj.simplifiedEnergy(energy, obj.targetEnergy(:,1));
+            
             fitness = -1 * sum(abs(energy(:,2) - obj.targetEnergy(:,2)));
         end
         
         function obj = convertDisp(obj)
-            out = cell(1, length(obj.targetX));
-            for i=1:length(out)
-                out{i} = sprintf('%f', obj.targetX(i)*obj.L);
+            %find turning point
+            len = length(obj.targetX);
+            x_temp = obj.targetX(2:len) - obj.targetX(1:len-1);
+            i = 2;
+            pre_dx = x_temp(1);
+            turning_ind = [];
+            while i<len-1
+                if pre_dx ~= 0.0
+                    cur_dx = x_temp(i);
+                    if pre_dx * cur_dx < 0
+                        turning_ind = vertcat(turning_ind, i);
+                        pre_dx = cur_dx;
+                    end
+                    i = i + 1;
+                else
+                    pre_dx = x_temp(i);
+                end
+            end
+            turning_ind = vertcat(turning_ind, len);
+            out = cell(1, length(turning_ind));
+            for i = 1 : length(out)
+                newX(i) = obj.targetX(turning_ind(i))*obj.L;
+                out{i} = sprintf('%f', newX(i));
             end
             obj.DispList = strjoin(out);
         end
