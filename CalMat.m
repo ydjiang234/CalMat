@@ -14,6 +14,7 @@ classdef CalMat
         considerNum = 10;
         Energy;
         d_incr;
+        working_path = 'Working';
     end
     
     methods
@@ -61,7 +62,7 @@ classdef CalMat
         
         function obj = preRender(obj)
             %load template;
-            filePath = 'ModifiedCPTemplate.tcl';
+            filePath = 'Tcl_Template/ModifiedCPTemplate.tcl';
             f = fopen(filePath, 'r');
             str = textscan(f, '%s','delimiter','\n');
             fclose(f);
@@ -94,7 +95,7 @@ classdef CalMat
         end
         
         function cmdLine = CP_cmdLine(obj, lambda_S, lambda_C, lambda_A, lambda_K)
-            cmdLine = sprintf('%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f', obj.K0amp, obj.as, obj.as, obj.Fy, -obj.Fy, lambda_S, lambda_C, lambda_A, lambda_K, obj.c_S, obj.c_C, obj.c_A, obj.c_K, obj.thetap, obj.thetap, obj.thetapc, obj.thetapc, obj.Res, obj.Res, obj.thetau, obj.thetau, obj.D, obj.D);
+            cmdLine = sprintf('%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f', obj.K0, obj.as, obj.as, obj.Fy, -obj.Fy, lambda_S, lambda_C, lambda_A, lambda_K, obj.c_S, obj.c_C, obj.c_A, obj.c_K, obj.thetap, obj.thetap, obj.thetapc, obj.thetapc, obj.Res, obj.Res, obj.thetau, obj.thetau, obj.D, obj.D);
         end
         
         function renderTemplate(obj, outPath, lambda_S, lambda_C, lambda_A, lambda_K )
@@ -114,14 +115,14 @@ classdef CalMat
         
         function output = runOpenSees(obj, filePath)
             system(sprintf('OpenSees %s.out', filePath));
-            dataX = load(sprintf('%s_disp.out', filePath));
-            dataY = load(sprintf('%s_force.out', filePath));
+            dataX = load(sprintf('%s_rotation.out', filePath));
+            dataY = load(sprintf('%s_moment.out', filePath));
             delete *.out
-            output = horzcat(dataX/obj.L, dataY);
+            output = horzcat(dataX*-1, dataY);
         end
         
         function [output, energy, fitness] = Analyze(obj, lambda_S, lambda_C, lambda_A, lambda_K)
-            outPath = 'rendered';
+            outPath = sprintf('%s/rendered', obj.working_path);
             obj.renderTemplate(outPath, lambda_S, lambda_C, lambda_A, lambda_K);
             output = runOpenSees(obj, outPath);
             energy = obj.getEnergy(output(:,1), output(:,2));
@@ -166,7 +167,7 @@ classdef CalMat
             turning_ind = vertcat(turning_ind, len);
             out = cell(1, length(turning_ind));
             for i = 1 : length(out)
-                newX(i) = obj.targetX(turning_ind(i))*obj.L;
+                newX(i) = obj.targetX(turning_ind(i));
                 out{i} = sprintf('%f', newX(i));
             end
             obj.DispList = strjoin(out);

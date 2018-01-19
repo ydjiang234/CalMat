@@ -17,9 +17,12 @@ targetData = load('TargetData.txt');%Displacement (mm) - Moment (kNm)
 targetData(:,1) = targetData(:,1) / L;
 targetData(:,2) = targetData(:,2) * 1.0E6;
 
-d_incr = 1.0;
+d_incr = 0.001;
 cal = CalMat(A, I, L, Naxial, revK, backbone, targetData, ampFactor, d_incr);
-
+[output, energy, fitness] = cal.Analyze(10,10,10,10);
+plot(output(:,1), output(:,2))
+hold on;
+plot(cal.targetX, cal.targetY, 'r')
 %initial the Harmony search class
 pit_range = [0, 15;
             0, 15;
@@ -28,12 +31,12 @@ pit_range = [0, 15;
 hms = 10;
 fw_ratio = 0.01; hmcr = 0.9; par = 0.3;
 
-HS = Harmony_Search(pit_range, hms, @cal.fit_fun, hmcr, par, fw_ratio);
-max_iter = 100;
-for i=1:max_iter
-    HS = HS.next();
-    [vectors(i,:), maxFitness(i)] = HS.Optimized();
-end
-%plot(maxFitness)
-[temp, max_ind] =  max(maxFitness);
-sprintf('With an iteration number = %i, the solutions are %0.3f %0.3f %0.3f %0.3f', max_iter, vectors(max_ind,:))
+% HS = Harmony_Search(pit_range, hms, @cal.fit_fun, hmcr, par, fw_ratio);
+% max_iter = 100;
+% for i=1:max_iter
+%     HS = HS.next();
+%     [vectors(i,:), maxFitness(i)] = HS.Optimized();
+% end
+% %plot(maxFitness)
+% [temp, max_ind] =  max(maxFitness);
+% sprintf('With an iteration number = %i, the solutions are %0.3f %0.3f %0.3f %0.3f', max_iter, vectors(max_ind,:))
