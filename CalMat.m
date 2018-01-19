@@ -3,7 +3,7 @@ classdef CalMat
     %   Detailed explanation goes here
     
     properties
-        E; K; A; I; L; N; backbone; targetX; targetY;%input parameters, to descripe the target member and target data
+        E; K; A; I; L; N; backbone; targetX; targetY; targetEnergy;%input parameters, to descripe the target member and target data
         K0; K0amp; as, thetap,thetapc; thetay; Fy; thetac; Fc; thetau; Res; backboneShifted;%describe the backbone of the CP model
         c_S = 1.0; c_C = 1.0; c_A = 1.0; c_K = 1.0;
         D = 1.0;
@@ -11,6 +11,8 @@ classdef CalMat
         ampFactor;
         DispList;
         template;
+        considerNum = 10;
+        Energy
     end
     
     methods
@@ -48,6 +50,11 @@ classdef CalMat
             %other
             obj = obj.convertDisp();
             obj = obj.preRender();
+            %Initial targetEnergy
+            obj.Energy = obj.getEnergy(obj.targetX, obj.targetY);
+            obj.Energy = obj.monoData(obj.Energy);
+            xRange = linspace(obj.Energy(1,1), obj.Energy(length(obj.Energy),1), obj.considerNum);
+            obj.targetEnergy = obj.simplifiedEnergy(obj.Energy, xRange);
         end
         
         function obj = preRender(obj)
@@ -107,13 +114,20 @@ classdef CalMat
             dataX = load(sprintf('%s_disp.out', filePath));
             dataY = load(sprintf('%s_force.out', filePath));
             delete *.out
-            output = horzcat(dataX, dataY);
+            output = horzcat(dataX/obj.L, dataY);
         end
         
-        function output = Analyze(obj, lambda_S, lambda_C, lambda_A, lambda_K )
+        function [output, energy, fitness] = Analyze(obj, lambda_S, lambda_C, lambda_A, lambda_K)
             outPath = 'rendered';
             obj.renderTemplate(outPath, lambda_S, lambda_C, lambda_A, lambda_K);
             output = runOpenSees(obj, outPath);
+            energy = obj.getEnergy(output(:,1), output(:,2));
+            fitness = obj.Fitness(energy);
+        end
+        
+        function fitness = Fitness(obj, energy)
+            energy = obj.simplifiedEnergy(energy, obj.targetEnergy(:,1));
+            fitness = -1 * sum(abs(energy(:,2) - obj.targetEnergy(:,2)));
         end
         
         function obj = convertDisp(obj)
@@ -123,6 +137,27 @@ classdef CalMat
             end
             obj.DispList = strjoin(out);
         end
+        
+        function energy = getEnergy(obj, dataX, dataY)
+            data_d = dataX(2:length(dataX)) - dataX(1:length(dataX)-1);
+            energy(:,1) = cumsum(abs(data_d));
+            energy(:,2) = cumsum(data_d .* (dataY(1:length(dataY)-1) + dataY(2:length(dataY))) ./ 2.0);
+        end
+        
+        function energy_simplifed = simplifiedEnergy(obj, energy, xRange)
+            energy_simplifed(:,1) = xRange;
+            energy_simplifed(:,2) = interp1(energy(:,1), energy(:,2), xRange, 'linear','extrap');
+        end
+        
+        function output = monoData(obj, data)
+            output(1,:) = data(1,:);
+            for i=2:length(data)
+                if data(i,1) > data(i-1,1)
+                    output = vertcat(output, data(i,:));
+                end
+            end
+        end
+        
     end
     
 end
