@@ -77,6 +77,7 @@ classdef Harmony_Search
                 end
                 obj.fitness(i) = obj.fit_fun(obj.HM(i,:));
             end
+            sprintf('Harmony Memory Matrix Generated!')
         end
         
         function obj = update_HM(obj, harmony_vector)

@@ -47,7 +47,7 @@ classdef CalMat
             obj.K0amp = obj.K0 * (obj.ampFactor + 1.0);
             obj.thetap = obj.thetac - obj.thetay;
             obj.thetapc = obj.backboneShifted(3,1) - obj.thetac;
-            obj.as = (obj.Fc - obj.Fy) / obj.thetap / obj.K0amp;
+            obj.as = (obj.Fc - obj.Fy) / obj.thetap / obj.K0;
             %for the reverse material
             obj.revKamp = obj.revK;
             %other
@@ -94,15 +94,19 @@ classdef CalMat
             obj.backboneShifted(3,2) = 0.0;
         end
         
-        function cmdLine = CP_cmdLine(obj, lambda_S, lambda_C, lambda_A, lambda_K)
+        function cmdLine = CP_cmdLine(obj, vector)
+            lambda_S = vector(1);
+            lambda_C = vector(2);
+            lambda_A = vector(3);
+            lambda_K = vector(4);
             cmdLine = sprintf('%f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f', obj.K0, obj.as, obj.as, obj.Fy, -obj.Fy, lambda_S, lambda_C, lambda_A, lambda_K, obj.c_S, obj.c_C, obj.c_A, obj.c_K, obj.thetap, obj.thetap, obj.thetapc, obj.thetapc, obj.Res, obj.Res, obj.thetau, obj.thetau, obj.D, obj.D);
         end
         
-        function renderTemplate(obj, outPath, lambda_S, lambda_C, lambda_A, lambda_K )
+        function renderTemplate(obj, outPath, vector)
             str = obj.template; 
             %replace parameters
             
-            str = strrep(str, '{{CP_CMDLine}}', obj.CP_cmdLine(lambda_S, lambda_C, lambda_A, lambda_K));
+            str = strrep(str, '{{CP_CMDLine}}', obj.CP_cmdLine(vector));
             
             str = strrep(str, '{{outname}}', outPath);
             %str = strrep(str, '{{}}', num2str());
@@ -114,27 +118,24 @@ classdef CalMat
         end
         
         function output = runOpenSees(obj, filePath)
-            system(sprintf('OpenSees %s.out', filePath));
+            [x, y] = system(sprintf('OpenSees %s.out', filePath));
             dataX = load(sprintf('%s_rotation.out', filePath));
             dataY = load(sprintf('%s_moment.out', filePath));
             delete *.out
             output = horzcat(dataX*-1, dataY);
         end
         
-        function [output, energy, fitness] = Analyze(obj, lambda_S, lambda_C, lambda_A, lambda_K)
+        function [output, energy, fitness] = Analyze(obj, vector)
+            
             outPath = sprintf('%s/rendered', obj.working_path);
-            obj.renderTemplate(outPath, lambda_S, lambda_C, lambda_A, lambda_K);
+            obj.renderTemplate(outPath, vector);
             output = runOpenSees(obj, outPath);
             energy = obj.getEnergy(output(:,1), output(:,2));
             fitness = obj.Fitness(energy);
         end
         
         function fitness = fit_fun(obj, vector)
-            lambda_S = vector(1);
-            lambda_C = vector(2);
-            lambda_A = vector(3);
-            lambda_K = vector(4);
-            [output, energy, fitness] = obj.Analyze(lambda_S, lambda_C, lambda_A, lambda_K);
+            [output, energy, fitness] = obj.Analyze(vector);
             fitness = fitness;
         end
         
@@ -149,9 +150,9 @@ classdef CalMat
             %find turning point
             len = length(obj.targetX);
             x_temp = obj.targetX(2:len) - obj.targetX(1:len-1);
-            i = 2;
             pre_dx = x_temp(1);
-            turning_ind = [];
+            i = 2;
+            turning_ind = [1];
             while i<len-1
                 if pre_dx ~= 0.0
                     cur_dx = x_temp(i);
@@ -168,9 +169,16 @@ classdef CalMat
             out = cell(1, length(turning_ind));
             for i = 1 : length(out)
                 newX(i) = obj.targetX(turning_ind(i));
-                out{i} = sprintf('%f', newX(i));
             end
-            obj.DispList = strjoin(out);
+            
+            obj.DispList = sprintf('%s ', newX);
+
+%             out = cell(1, length(obj.targetX));
+%             for i = 1 : length(obj.targetX)
+%                 newX(i) = obj.targetX(i);
+%                 out{i} = sprintf('%f', newX(i));
+%             end
+%             obj.DispList = strjoin(out);
         end
         
         function energy = getEnergy(obj, dataX, dataY)
