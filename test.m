@@ -32,7 +32,7 @@ hms = 10;
 fw_ratio = 0.01; hmcr = 0.9; par = 0.3;
 
 HS = Harmony_Search(pit_range, hms, @cal.fit_fun, hmcr, par, fw_ratio);
-max_iter = 5000;
+max_iter = 500;
 for i=1:max_iter
     HS = HS.next();
     [vectors(i,:), maxFitness(i)] = HS.Optimized();
@@ -41,14 +41,10 @@ end
 %plot(maxFitness)
 [temp, max_ind] =  max(maxFitness);
 sprintf('With an iteration number = %i, the solutions are %0.3f %0.3f %0.3f %0.3f.', max_iter, vectors(max_ind,:))
-[output, energy, fitness] = cal.Analyze(vectors(max_ind,:));
+[output, fitness] = cal.Analyze(vectors(max_ind,:));
 plot(output(:,1), output(:,2))
 hold on;
 plot(cal.targetX, cal.targetY, 'r')
-figure;
-plot(energy(:,1), energy(:,2))
-hold on;
-plot(cal.Energy(:,1), cal.Energy(:,2), 'r')
 figure;
 plot(maxFitness);
 

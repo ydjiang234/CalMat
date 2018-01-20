@@ -51,6 +51,11 @@ classdef Harmony_Search
                 new_pit = obj.random_pit_from_list(obj.HM(:,ins_ind));
                 if obj.bool_probability(obj.par(ins_ind))
                     new_pit = new_pit + obj.fw(ins_ind) * obj.randNum(-1.0, 1.0);
+                    if new_pit > obj.pit_range(ins_ind,2)
+                        new_pit = obj.pit_range(ins_ind,2);
+                    elseif new_pit < obj.pit_range(ins_ind,1)
+                        new_pit = obj.pit_range(ins_ind,1);
+                    end
                 end
             else
                 new_pit = obj.randNum(obj.pit_range(ins_ind,1), obj.pit_range(ins_ind,2));

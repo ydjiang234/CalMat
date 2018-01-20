@@ -9,10 +9,9 @@ classdef CalMat
         D = 1.0;
         revK; revKamp;%describe the additional reversed material
         ampFactor;
-        DispList;
+        turning; DispList; Energy; BBcyclic; targetBB;
         template;
         considerNum = 10;
-        Energy;
         d_incr;
         working_path = 'Working';
     end
@@ -51,13 +50,20 @@ classdef CalMat
             %for the reverse material
             obj.revKamp = obj.revK;
             %other
+            obj.turning = obj.findTurning(horzcat(obj.targetX, obj.targetY));
             obj = obj.convertDisp();
             obj = obj.preRender();
+            
             %Initial targetEnergy
-            obj.Energy = obj.getEnergy(obj.targetX, obj.targetY);
-            obj.Energy = obj.monoData(obj.Energy);
-            xRange = linspace(obj.Energy(1,1), obj.Energy(length(obj.Energy),1), obj.considerNum);
-            obj.targetEnergy = obj.simplifiedEnergy(obj.Energy, xRange);
+            %obj.Energy = obj.getEnergy(obj.targetX, obj.targetY);
+            %obj.Energy = obj.monoData(obj.Energy);
+            %xRange = linspace(obj.Energy(1,1), obj.Energy(length(obj.Energy),1), obj.considerNum);
+            %obj.targetEnergy = obj.simplifiedEnergy(obj.Energy, xRange);
+            
+            %Initial backbone
+            obj.BBcyclic = obj.monoData(obj.turning(:,2:3));
+            xRange = linspace(obj.BBcyclic(1,1), obj.BBcyclic(length(obj.BBcyclic),1), obj.considerNum);
+            obj.targetBB = obj.simplifiedData(obj.BBcyclic, xRange);
         end
         
         function obj = preRender(obj)
@@ -125,52 +131,31 @@ classdef CalMat
             output = horzcat(dataX*-1, dataY);
         end
         
-        function [output, energy, fitness] = Analyze(obj, vector)
+        function [output, fitness] = Analyze(obj, vector)
             
             outPath = sprintf('%s/rendered', obj.working_path);
             obj.renderTemplate(outPath, vector);
             output = runOpenSees(obj, outPath);
-            energy = obj.getEnergy(output(:,1), output(:,2));
-            fitness = obj.Fitness(energy);
+            %energy = obj.getEnergy(output(:,1), output(:,2));
+            fitness = obj.Fitness(output);
         end
         
         function fitness = fit_fun(obj, vector)
-            [output, energy, fitness] = obj.Analyze(vector);
-            fitness = fitness;
+            [output, fitness] = obj.Analyze(vector);
         end
         
-        function fitness = Fitness(obj, energy)
-            energy = obj.monoData(energy);
-            energy = obj.simplifiedEnergy(energy, obj.targetEnergy(:,1));
+        function fitness = Fitness(obj, data)
+            data = obj.findTurning(data);
+            data = obj.monoData(data(:,2:3));
+            data = obj.simplifiedData(data, obj.targetBB(:,1));
             
-            fitness = -1 * sum(abs(energy(:,2) - obj.targetEnergy(:,2)));
+            fitness = -1 * sum(abs(data(:,2) - obj.targetBB(:,2)));
         end
         
         function obj = convertDisp(obj)
             %find turning point
-            len = length(obj.targetX);
-            x_temp = obj.targetX(2:len) - obj.targetX(1:len-1);
-            pre_dx = x_temp(1);
-            i = 2;
-            turning_ind = [1];
-            while i<len-1
-                if pre_dx ~= 0.0
-                    cur_dx = x_temp(i);
-                    if pre_dx * cur_dx < 0
-                        turning_ind = vertcat(turning_ind, i);
-                        pre_dx = cur_dx;
-                    end
-                    i = i + 1;
-                else
-                    pre_dx = x_temp(i);
-                end
-            end
-            turning_ind = vertcat(turning_ind, len);
-            out = cell(1, length(turning_ind));
-            for i = 1 : length(out)
-                newX(i) = obj.targetX(turning_ind(i));
-            end
-            
+            newX = obj.turning(:,2);
+            newX = vertcat(obj.targetX(1),newX);
             obj.DispList = sprintf('%s ', newX);
 
 %             out = cell(1, length(obj.targetX));
@@ -187,20 +172,43 @@ classdef CalMat
             energy(:,2) = cumsum(data_d .* (dataY(1:length(dataY)-1) + dataY(2:length(dataY))) ./ 2.0);
         end
         
-        function energy_simplifed = simplifiedEnergy(obj, energy, xRange)
-            energy_simplifed(:,1) = xRange;
-            energy_simplifed(:,2) = interp1(energy(:,1), energy(:,2), xRange, 'linear','extrap');
+        function data_simplifed = simplifiedData(obj, data, xRange)
+            data_simplifed(:,1) = xRange;
+            data_simplifed(:,2) = interp1(data(:,1), data(:,2), xRange, 'linear','extrap');
         end
         
         function output = monoData(obj, data)
             output(1,:) = data(1,:);
+            pre_x = output(1,1);
             for i=2:length(data)
-                if data(i,1) > data(i-1,1)
+                if data(i,1) > pre_x
                     output = vertcat(output, data(i,:));
+                    pre_x = data(i,1);
                 end
             end
         end
         
+        function output = findTurning(obj, data)
+            %find turning point
+            len = length(data);
+            x_temp = data(2:len,1) - data(1:len-1,1);
+            pre_dx = x_temp(1);
+            i = 2;
+            output = [];
+            while i<len-1
+                if pre_dx ~= 0.0
+                    cur_dx = x_temp(i);
+                    if pre_dx * cur_dx < 0
+                        output = vertcat(output, [i, data(i,1), data(i,2)]);
+                        pre_dx = cur_dx;
+                    end
+                    i = i + 1;
+                else
+                    pre_dx = x_temp(i);
+                end
+            end
+            output = vertcat(output, [len, data(len,1), data(len,1)]);
+        end
     end
     
 end
