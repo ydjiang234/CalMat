@@ -32,7 +32,7 @@ hms = 10;
 fw_ratio = 0.01; hmcr = 0.9; par = 0.3;
 
 HS = Harmony_Search(pit_range, hms, @cal.fit_fun, hmcr, par, fw_ratio);
-max_iter = 500;
+max_iter = 5000;
 for i=1:max_iter
     HS = HS.next();
     [vectors(i,:), maxFitness(i)] = HS.Optimized();
